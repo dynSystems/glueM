@@ -51,6 +51,7 @@ function compileGlueM()
             os = '#define ZMQ_HAVE_OSX';
         end
         
+        % Determine which messaging system to use
         if ( includeExists('sys/event.h') )
             poller = 'ZMQ_USE_KQUEUE';
         %elseif ( includeExists('sys/epoll.h') )
@@ -64,8 +65,9 @@ function compileGlueM()
         else
             error( 'Could not find suitable polling library' );
         end
-        fprintf( '%s\n', poller );
-               
+        fprintf( 'Using poller: %s\n', poller );
+        
+        % Grab list of include files and libraries installed on the system
         defs          = linuxDefs();
         [defs2, libs] = linuxLibs();
         content = {     '#ifndef __PLATFORM_HPP_INCLUDED__', ...
@@ -78,7 +80,8 @@ function compileGlueM()
         
         fprintf( file, '%s\n', content{:} );
         
-        % Get rid of the incredibly irritating -ansi in the default mex options
+        % Get rid of the irritating -ansi in the default mex options
+        % in order to make sure that // doesn't raise errors
         L = fileread(fullfile(matlabroot, 'bin', 'mexopts.sh'));
         L = strrep(L, '-ansi', '');
         optsfid = fopen('custommexopts.sh', 'w');
@@ -86,7 +89,9 @@ function compileGlueM()
         fclose( optsfid );
         mexopt{end+1} = '-f';
         mexopt{end+1} = fullfile( pwd, 'custommexopts.sh' );
-        mexopt{end+1:end+size(libs)} = libs{:};
+        
+        % Link required libraries
+        mexopt = {mexopt{:} libs{:}}; %#ok
     end
     fclose(file);
     
@@ -114,12 +119,13 @@ function compileGlueM()
     compiledUtil = genStrings( fullfile(temputildir), '*.*' );
     compiledZmq = genStrings( fullfile(tempzmqdir), '*.*' );
     for j = 1 : numel( funcSources )
-        mex( mexopt{:}, '-DZMQ_STATIC', '-outdir', outdir, ['-I"' zmqheaderpath '"'], ['-I"' mzmqsrcpath '"'], compiledZmq{:}, compiledUtil{:}, ['"' funcSources{j} '"'] );
+        [folder, name, ~] = fileparts( funcSources{j} );
+        mex( mexopt{:}, '-DZMQ_STATIC', ['-I"' zmqheaderpath '"'], ['-I"' mzmqsrcpath '"'], compiledZmq{:}, compiledUtil{:}, ['"' funcSources{j} '"'], '-output', fullfile(outdir, name) );
     end
     
     % Clean up intermediate directories
     rmdir( tempzmqdir, 's' );
-    rmdir( temputildir, 's' );    
+    rmdir( temputildir, 's' );
 end
 
 % Generate as list with paths
@@ -209,7 +215,6 @@ end
 %#undef HAVE_GETIFADDRS
 %/* Define to 1 if you have the `gettimeofday' function. */
 %#undef HAVE_GETTIMEOFDAY
-
 %/* The libunwind library is to be used */
 %#undef HAVE_LIBUNWIND
 %/* Define to 1 if you have the `memset' function. */
