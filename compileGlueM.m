@@ -74,13 +74,14 @@ function compileGlueM()
     end
     
     % Clean up intermediate directories
-    rmdir( 'mzmq_util', 's' );
-    rmdir( 'compiled', 's' );    
+    rmdir( tempzmqdir, 's' );
+    rmdir( temputildir, 's' );    
 end
 
 % Generate as list with paths
 function str = genStrings( path, filt )
-    fns = ls( fullfile( path, filt ) );
+    fns = dir( fullfile( path, filt ) );
+    fns = {fns.name};
     fns = setdiff( fns, {'.', '..'} );
     
     for a = 1 : numel( fns )
