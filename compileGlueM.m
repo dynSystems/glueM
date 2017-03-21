@@ -67,8 +67,8 @@ function compileGlueM()
     % Compile the call functions
     funcSources = genStrings( funcsourcepath, '*.c' );
     fprintf( 'Compiling mzmq functions ...\n' );
-    compiledUtil = genStrings( fullfile('mzmq_util'), '*.*' );
-    compiledZmq = genStrings( fullfile('compiled'), '*.*' );
+    compiledUtil = genStrings( fullfile(temputildir), '*.*' );
+    compiledZmq = genStrings( fullfile(tempzmqdir), '*.*' );
     for j = 1 : numel( funcSources )
         mex( mexopt{:}, '-DZMQ_STATIC', '-outdir', outdir, ['-I"' zmqheaderpath '"'], ['-I"' mzmqsrcpath '"'], compiledZmq{:}, compiledUtil{:}, ['"' funcSources{j} '"'] );
     end
