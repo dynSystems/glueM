@@ -18,6 +18,13 @@ function initGlueM()
         if ~isempty( mexfiles )
             compiled = 1;
         end
+    else
+        ma64 = dir(fullfile(mzmqpath, 'lib', '+zmq', '+core', '*.mexa64'));
+        ma32 = dir(fullfile(mzmqpath, 'lib', '+zmq', '+core', '*.mexa32'));
+        mexfiles = union( {ma64.name}, {ma32.name} );
+        if ~isempty( mexfiles )
+            compiled = 1;
+        end
     end
     
     if ( ~compiled )
