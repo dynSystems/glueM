@@ -1,14 +1,31 @@
 function compileGlueM()
 
-    % mexopt = {'-largeArrayDims'}; 
-    mexopt = {};
     zmqpath = fullfile('3rdparty', 'zeromq-4.2.1');
-    outdir = 'compiled';
+    mzmqpath = fullfile('3rdparty', 'matlab_zmq');
     
-    zmqheaderpath = fullfile( zmqpath, 'include' );
-    zmqsrcpath = fullfile( zmqpath, 'src' );
+    mexopt = {};
     
-    % Write config
+    if ( ispc )
+        % Include Winsock libraries
+        mexopt{end+1} = '-lWs2_32.lib';
+        mexopt{end+1} = '-lIphlpapi.lib';
+    end
+    
+    % Determine source paths
+    zmqheaderpath   = fullfile( zmqpath, 'include' );
+    zmqsrcpath      = fullfile( zmqpath, 'src' );
+    mzmqsrcpath     = fullfile( mzmqpath, 'src' );
+    mzmqutilpath    = fullfile( mzmqsrcpath, 'util' );
+    funcsourcepath  = fullfile( mzmqsrcpath, 'core' );
+    
+    % Temporary directories
+    tempzmqdir = '__zmq';
+    temputildir = '__mzmq_util';
+    
+    % Target directory
+    outdir = fullfile( mzmqpath, 'lib', '+zmq', '+core' );
+    
+    % Write config file for compiling ZMQ
     fprintf( 'Generating zmq library files ...\n' );
     file = fopen( fullfile( zmqsrcpath, 'platform.hpp' ), 'w' );
     % ZMQ_HAVE_LINUX
@@ -31,15 +48,34 @@ function compileGlueM()
             '#define ZMQ_STATIC', ...
             '#endif' );
     end
-    
     fclose(file);
     
     % Compile zmq library to object files
     fprintf( 'Compiling zmq to object files ...\n' );
     zmqsrc = genStrings( zmqsrcpath, '*.cpp' );
     for j = 1 : numel( zmqsrc )
-        mex( '-c', mexopt{:}, '-DZMQ_STATIC', '-outdir', outdir, ['-I"', fullfile('.', zmqsrcpath), '"'], ['-I"', fullfile('.', zmqheaderpath), '"'], ['"' zmqsrc{j} '"'] );
+        mex( '-c', mexopt{:}, '-DZMQ_STATIC', '-outdir', tempzmqdir, ['-I"', fullfile('.', zmqsrcpath), '"'], ['-I"', fullfile('.', zmqheaderpath), '"'], ['"' zmqsrc{j} '"'] );
     end
+    
+    % Compile utility files
+	fprintf( 'Compiling mzmq utility functions ...\n' );
+    utilSources = genStrings( mzmqutilpath, '*.c' );
+    for j = 1 : numel( utilSources )
+        mex( '-c', mexopt{:}, '-DZMQ_STATIC', '-outdir', temputildir, ['-I"' zmqheaderpath '"'], [ '"' utilSources{j} '"' ] );
+    end
+    
+    % Compile the call functions
+    funcSources = genStrings( funcsourcepath, '*.c' );
+    fprintf( 'Compiling mzmq functions ...\n' );
+    compiledUtil = genStrings( fullfile('mzmq_util'), '*.*' );
+    compiledZmq = genStrings( fullfile('compiled'), '*.*' );
+    for j = 1 : numel( funcSources )
+        mex( mexopt{:}, '-DZMQ_STATIC', '-outdir', outdir, ['-I"' zmqheaderpath '"'], ['-I"' mzmqsrcpath '"'], compiledZmq{:}, compiledUtil{:}, ['"' funcSources{j} '"'] );
+    end
+    
+    % Clean up intermediate directories
+    rmdir( 'mzmq_util', 's' );
+    rmdir( 'compiled', 's' );    
 end
 
 % Generate as list with paths
